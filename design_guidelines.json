@@ -1,0 +1,145 @@
+{
+  "project_name": "Audio Engineering Utility App",
+  "app_type": "React Native Expo mobile app",
+  "theme": "DARK",
+  "archetype": "Archetype 2: Performance Pro",
+  "design_philosophy": "A professional, tactical dark mode aesthetic suitable for audio engineering. Emphasizes high contrast, clean typography, and tactile UI elements like sliders and gauges. Focuses on data clarity and functional beauty.",
+  "colors": {
+    "background": {
+      "primary": "#0A0A0A",
+      "secondary": "#141414",
+      "tertiary": "#1F1F1F"
+    },
+    "text": {
+      "primary": "#FFFFFF",
+      "secondary": "#A1A1AA",
+      "muted": "#71717A"
+    },
+    "brand": {
+      "primary": "#00E5FF",
+      "primary_hover": "#00B8D4",
+      "accent": "#FF3B30",
+      "success": "#34C759",
+      "warning": "#FFCC00"
+    },
+    "meter": {
+      "safe": "#34C759",
+      "normal": "#FFCC00",
+      "loud": "#FF9500",
+      "dangerous": "#FF3B30"
+    },
+    "border": {
+      "default": "rgba(255, 255, 255, 0.1)",
+      "focus": "#00E5FF"
+    }
+  },
+  "typography": {
+    "headings": {
+      "family": "Barlow Condensed, Impact, sans-serif",
+      "weights": ["700", "900"],
+      "sizes": {
+        "h1": "text-4xl tracking-tighter",
+        "h2": "text-3xl tracking-tight",
+        "h3": "text-2xl",
+        "h4": "text-xl"
+      }
+    },
+    "body": {
+      "family": "Inter, Roboto, sans-serif",
+      "weights": ["400", "500", "600"],
+      "sizes": {
+        "base": "text-base",
+        "sm": "text-sm",
+        "xs": "text-xs tracking-[0.2em] uppercase"
+      }
+    }
+  },
+  "spacing_and_layout": {
+    "container_padding": "p-4 sm:p-6",
+    "element_gap": "gap-6",
+    "border_radius": {
+      "card": "rounded-2xl",
+      "button": "rounded-xl",
+      "chip": "rounded-full"
+    },
+    "shadows": {
+      "neon_glow": "0 0 10px rgba(0, 229, 255, 0.5)",
+      "card_lift": "0 4px 20px rgba(0, 0, 0, 0.4)"
+    }
+  },
+  "screens": [
+    {
+      "name": "Boost",
+      "route": "boost",
+      "icon": "volume-high",
+      "description": "Audio enhancement controls.",
+      "components": [
+        "Hero Header: 'BOOST' with sleek typography.",
+        "Circular Dial or Large Vertical Slider for Volume Boost (0-200%).",
+        "Circular Dial or Large Vertical Slider for Bass Boost (0-100%).",
+        "Toggle Switch: 8D Audio Effect with neon glow when active.",
+        "Demo Audio Player: Play/Pause button, progress bar, audio visualizer graphic."
+      ]
+    },
+    {
+      "name": "Equalizer",
+      "route": "equalizer",
+      "icon": "options",
+      "description": "10-band EQ with presets.",
+      "components": [
+        "10-Band Vertical Sliders: Frequencies from 60Hz to 16kHz. Smooth thumb, glowing track.",
+        "Preset Selector: Horizontal scrollable chips (Flat, Pop, Rock, Jazz, Classical, Bass, Vocal, Electronic, Custom).",
+        "Reset Button: Ghost button to reset EQ to Flat."
+      ]
+    },
+    {
+      "name": "dB Meter",
+      "route": "meter",
+      "icon": "speedometer",
+      "description": "Decibel meter and recording.",
+      "components": [
+        "Real-time Gauge: Half-circle or circular animated meter, colored dynamically (Green -> Yellow -> Red).",
+        "Current Value Display: Huge central dB number.",
+        "Stats Row: Peak, Avg, Min dB values.",
+        "Status Badge: Quiet, Normal, Loud, Dangerous (colored accordingly).",
+        "Action Button: Start/Stop Recording (Prominent red/white button).",
+        "Line Chart: Real-time or historical graph of dB over time.",
+        "History List: List of past recordings with duration, max dB, and average dB. Options to save/delete."
+      ]
+    }
+  ],
+  "components_and_interactions": {
+    "sliders": {
+      "style": "Thick track, large tactile thumb, active portion uses primary neon color."
+    },
+    "buttons": {
+      "primary": "Solid background (Brand Primary), dark text, active scale-down animation.",
+      "secondary": "Outline with border default, white text.",
+      "ghost": "Transparent background, text secondary, slight opacity change on press."
+    },
+    "cards": {
+      "style": "Neumorphic tactile or flat dark grey with subtle 1px border. Deep shadow."
+    },
+    "bottom_tab_bar": {
+      "style": "Floating or fixed at bottom, translucent blur, active icon colored in neon brand, inactive in muted grey."
+    }
+  },
+  "testing": {
+    "rules": "All interactive and key informational elements MUST include a 'data-testid' attribute to facilitate robust automated testing. Example: data-testid='boost-volume-slider'."
+  },
+  "media": {
+    "icons_library": "@expo/vector-icons (Ionicons or MaterialCommunityIcons)",
+    "images": [
+      {
+        "category": "background",
+        "url": "https://images.pexels.com/photos/27141304/pexels-photo-27141304.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "description": "Dark music production interface, useful for subtle background if needed."
+      }
+    ]
+  },
+  "technical_notes": {
+    "framework": "React Native with Expo",
+    "styling": "StyleSheet or standard React Native styles (mimicking Tailwind where applicable)",
+    "file_type": "Use .js files, not .tsx"
+  }
+}
