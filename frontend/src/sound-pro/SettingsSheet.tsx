@@ -12,6 +12,7 @@ import Slider from "@react-native-community/slider";
 import { Ionicons } from "@expo/vector-icons";
 
 import { colors, radius } from "./theme";
+import * as H from "./haptic";
 
 const LABEL: any = { color: colors.textSecondary, fontSize: 10, fontWeight: "700", letterSpacing: 1.5 };
 
@@ -26,8 +27,10 @@ export default function SettingsSheet({ visible, onClose }: Props) {
   const [threshold, setThreshold] = useState(85);
 
   const calibrate = () => {
+    H.tap();
     setCalibrating("going");
     setTimeout(() => {
+      H.success();
       setCalibrating("done");
       setTimeout(() => setCalibrating("idle"), 2500);
     }, 3000);
@@ -38,10 +41,30 @@ export default function SettingsSheet({ visible, onClose }: Props) {
       <Pressable style={styles.overlay} onPress={onClose} testID="settings-overlay" />
       <View style={styles.sheet} testID="settings-sheet">
         <View style={styles.handle} />
-        <ScrollView contentContainerStyle={{ paddingBottom: 36 }} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
           {/* Header */}
-          <Text style={styles.h1}>SOUND PRO</Text>
-          <Text style={styles.muted}>Version 1.0.0</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+            <View>
+              <Text style={styles.h1}>SOUND PRO</Text>
+              <Text style={styles.muted}>Version 1.0.0</Text>
+            </View>
+            <View style={styles.freeBadge}>
+              <Ionicons name="heart" size={11} color={colors.green} />
+              <Text style={{ color: colors.green, fontSize: 10, fontWeight: "800", letterSpacing: 1, marginLeft: 5 }}>
+                100% FREE
+              </Text>
+            </View>
+          </View>
+
+          {/* Free pitch */}
+          <View style={styles.freeCard}>
+            <Text style={{ color: colors.textPrimary, fontSize: 13, fontWeight: "700" }}>
+              Every feature is free. Forever.
+            </Text>
+            <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 6, lineHeight: 18 }}>
+              No subscriptions, no paywalls, no locked tools. Sound Pro is built by audio enthusiasts who believe great tools should be accessible to everyone.
+            </Text>
+          </View>
 
           {/* Calibration */}
           <Text style={[LABEL, styles.section]}>CALIBRATION</Text>
@@ -50,97 +73,70 @@ export default function SettingsSheet({ visible, onClose }: Props) {
             onPress={calibrate}
             style={[styles.calBtn, calibrating !== "idle" && { borderColor: colors.green }]}
           >
-            <Text style={{ color: colors.green, fontWeight: "700", fontSize: 13 }}>
+            <Ionicons
+              name={calibrating === "done" ? "checkmark-circle" : "mic-outline"}
+              size={16}
+              color={colors.green}
+            />
+            <Text style={{ color: colors.green, fontWeight: "700", fontSize: 13, marginLeft: 8 }}>
               {calibrating === "going"
-                ? "Calibrating... Place device in quiet area"
+                ? "Calibrating… stay quiet"
                 : calibrating === "done"
-                ? "✓ Calibrated"
+                ? "Calibrated"
                 : "Calibrate Microphone"}
             </Text>
           </TouchableOpacity>
-          <Text style={[styles.muted, { marginTop: 6 }]}>
-            Improve accuracy by calibrating in a quiet room
+          <Text style={[styles.muted, { marginTop: 8 }]}>
+            Improves accuracy. Run it in a quiet room.
           </Text>
 
           {/* Display */}
           <Text style={[LABEL, styles.section]}>DISPLAY</Text>
-          <ToggleRow label="Show Frequency" on={showFreq} onToggle={() => setShowFreq((v) => !v)} testID="settings-show-freq" />
-          <ToggleRow label="Haptic Feedback" on={haptic} onToggle={() => setHaptic((v) => !v)} testID="settings-haptic" />
-          <ToggleRow label="Keep Screen On" on={keepScreenOn} onToggle={() => setKeepScreenOn((v) => !v)} testID="settings-keep-on" />
+          <ToggleRow label="Show Frequency" desc="Display dominant Hz on meter" on={showFreq} onToggle={() => { H.select(); setShowFreq((v) => !v); }} testID="settings-show-freq" />
+          <ToggleRow label="Haptic Feedback" desc="Subtle taps on interactions" on={haptic} onToggle={() => { H.select(); setHaptic((v) => !v); }} testID="settings-haptic" />
+          <ToggleRow label="Keep Screen On" desc="Prevent sleep while measuring" on={keepScreenOn} onToggle={() => { H.select(); setKeepScreenOn((v) => !v); }} testID="settings-keep-on" />
 
           {/* Alerts */}
           <Text style={[LABEL, styles.section]}>ALERTS</Text>
-          <ToggleRow label="Noise Alert" on={noiseAlert} onToggle={() => setNoiseAlert((v) => !v)} testID="settings-noise-alert" />
+          <ToggleRow label="Noise Alert" desc="Notify above threshold" on={noiseAlert} onToggle={() => { H.select(); setNoiseAlert((v) => !v); }} testID="settings-noise-alert" />
           <View style={styles.row2}>
-            <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-              <Text style={{ color: colors.textPrimary, fontSize: 13 }}>Alert Threshold</Text>
-              <Text style={{ color: colors.red, fontWeight: "700", fontSize: 13 }}>{threshold} dB</Text>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+              <Text style={{ color: colors.textPrimary, fontSize: 13, fontWeight: "600" }}>Alert Threshold</Text>
+              <Text style={{ color: colors.red, fontWeight: "800", fontSize: 13, fontVariant: ["tabular-nums"] }}>{threshold} dB</Text>
             </View>
             <Slider
               testID="settings-threshold-slider"
-              minimumValue={70}
-              maximumValue={100}
-              step={1}
+              minimumValue={70} maximumValue={100} step={1}
               value={threshold}
               onValueChange={setThreshold}
               minimumTrackTintColor={colors.red}
               maximumTrackTintColor="rgba(255,255,255,0.08)"
               thumbTintColor="#FFFFFF"
+              style={{ marginTop: 4 }}
             />
-          </View>
-
-          {/* Premium */}
-          <Text style={[LABEL, styles.section]}>PREMIUM</Text>
-          <View style={styles.premium}>
-            <Text style={{ fontSize: 24, textAlign: "center" }}>👑</Text>
-            <Text style={{ color: colors.textPrimary, fontSize: 15, fontWeight: "800", textAlign: "center", marginTop: 4 }}>
-              Go Premium
-            </Text>
-            <Text style={{ color: colors.textSecondary, fontSize: 11, textAlign: "center", marginTop: 2 }}>
-              Unlock all features
-            </Text>
-            <View style={{ marginTop: 14 }}>
-              {[
-                "Volume Boost up to 500%",
-                "10-Band Equalizer",
-                "All EQ Presets",
-                "Sleep Monitor",
-                "Evidence Mode",
-                "PDF & CSV Export",
-                "No Ads",
-              ].map((f) => (
-                <Text key={f} style={{ color: colors.textPrimary, fontSize: 12, marginVertical: 2 }}>
-                  <Text style={{ color: colors.amber }}>✓</Text>  {f}
-                </Text>
-              ))}
-            </View>
-            <TouchableOpacity testID="settings-buy" style={styles.priceBtn}>
-              <Text style={{ color: "#1A1A24", fontWeight: "900", fontSize: 14 }}>$19.99/year</Text>
-            </TouchableOpacity>
-            <Text style={{ color: colors.textMuted, fontSize: 10, textAlign: "center", marginTop: 6 }}>
-              or $2.99/month
-            </Text>
-            <TouchableOpacity testID="settings-restore">
-              <Text style={{ color: colors.textMuted, fontSize: 10, textAlign: "center", marginTop: 6, textDecorationLine: "underline" }}>
-                Restore Purchase
-              </Text>
-            </TouchableOpacity>
           </View>
 
           {/* About */}
           <Text style={[LABEL, styles.section]}>ABOUT</Text>
           {[
-            { label: "Rate Us", id: "rate" },
-            { label: "Share App", id: "share" },
-            { label: "Privacy Policy", id: "privacy" },
-            { label: "Terms of Use", id: "terms" },
-            { label: "Contact Us", id: "contact" },
+            { label: "Rate Us", id: "rate", icon: "star-outline" },
+            { label: "Share App", id: "share", icon: "share-outline" },
+            { label: "Privacy Policy", id: "privacy", icon: "shield-checkmark-outline" },
+            { label: "Terms of Use", id: "terms", icon: "document-text-outline" },
+            { label: "Contact Us", id: "contact", icon: "mail-outline" },
           ].map((item) => (
-            <TouchableOpacity key={item.id} testID={`settings-${item.id}`} style={styles.aboutRow}>
-              <Text style={{ color: colors.textPrimary, fontSize: 13 }}>{item.label}</Text>
+            <TouchableOpacity key={item.id} testID={`settings-${item.id}`} onPress={() => H.tap()} style={styles.aboutRow}>
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <Ionicons name={item.icon as any} size={16} color={colors.textSecondary} />
+                <Text style={{ color: colors.textPrimary, fontSize: 13, marginLeft: 10 }}>{item.label}</Text>
+              </View>
               <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
             </TouchableOpacity>
           ))}
+
+          <Text style={{ color: colors.textMuted, fontSize: 11, textAlign: "center", marginTop: 28, lineHeight: 18 }}>
+            Made with care by audio enthusiasts.{"\n"}Crank it up. 🎧
+          </Text>
         </ScrollView>
       </View>
     </Modal>
@@ -148,39 +144,29 @@ export default function SettingsSheet({ visible, onClose }: Props) {
 }
 
 function ToggleRow({
-  label,
-  on,
-  onToggle,
-  testID,
-}: {
-  label: string;
-  on: boolean;
-  onToggle: () => void;
-  testID: string;
-}) {
+  label, desc, on, onToggle, testID,
+}: { label: string; desc?: string; on: boolean; onToggle: () => void; testID: string }) {
   return (
     <View style={styles.row2}>
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-        <Text style={{ color: colors.textPrimary, fontSize: 13 }}>{label}</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: colors.textPrimary, fontSize: 13, fontWeight: "600" }}>{label}</Text>
+          {desc && <Text style={{ color: colors.textMuted, fontSize: 11, marginTop: 2 }}>{desc}</Text>}
+        </View>
         <TouchableOpacity
           onPress={onToggle}
           testID={testID}
           style={{
-            width: 46,
-            height: 26,
-            borderRadius: 13,
+            width: 46, height: 26, borderRadius: 13,
             backgroundColor: on ? colors.green : "rgba(255,255,255,0.08)",
-            padding: 3,
-            justifyContent: "center",
+            padding: 3, justifyContent: "center",
+            marginLeft: 12,
           }}
         >
           <View
             style={{
-              width: 20,
-              height: 20,
-              borderRadius: 10,
-              backgroundColor: "#FFF",
-              alignSelf: on ? "flex-end" : "flex-start",
+              width: 20, height: 20, borderRadius: 10,
+              backgroundColor: "#FFF", alignSelf: on ? "flex-end" : "flex-start",
             }}
           />
         </TouchableOpacity>
@@ -192,73 +178,52 @@ function ToggleRow({
 const styles = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)" },
   sheet: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
+    position: "absolute", bottom: 0, left: 0, right: 0,
     backgroundColor: colors.base,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingHorizontal: 18,
-    paddingTop: 10,
+    borderTopLeftRadius: 22, borderTopRightRadius: 22,
+    paddingHorizontal: 20, paddingTop: 10,
     maxHeight: "88%",
-    borderTopWidth: 1,
-    borderColor: "rgba(255,255,255,0.06)",
+    borderTopWidth: 1, borderColor: "rgba(255,255,255,0.06)",
   },
   handle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
+    width: 36, height: 4, borderRadius: 2,
     backgroundColor: "rgba(255,255,255,0.15)",
-    alignSelf: "center",
-    marginBottom: 14,
+    alignSelf: "center", marginBottom: 16,
   },
-  h1: { color: colors.textPrimary, fontSize: 16, fontWeight: "800" },
+  h1: { color: colors.textPrimary, fontSize: 18, fontWeight: "900", letterSpacing: 1 },
   muted: { color: colors.textMuted, fontSize: 11 },
   section: { marginTop: 22, marginBottom: 8 },
+  freeBadge: {
+    flexDirection: "row", alignItems: "center",
+    paddingHorizontal: 10, paddingVertical: 5,
+    backgroundColor: "rgba(0,230,118,0.10)",
+    borderRadius: 8,
+    borderWidth: 1, borderColor: "rgba(0,230,118,0.3)",
+  },
+  freeCard: {
+    marginTop: 16,
+    backgroundColor: colors.surface,
+    borderWidth: 1, borderColor: colors.borderStrong,
+    borderRadius: radius.card,
+    padding: 14,
+  },
   calBtn: {
     backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.green,
+    borderWidth: 1, borderColor: colors.green,
     borderRadius: radius.button,
-    paddingVertical: 12,
-    alignItems: "center",
+    paddingVertical: 13,
+    flexDirection: "row", alignItems: "center", justifyContent: "center",
   },
   row2: {
     backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 8,
-  },
-  premium: {
-    padding: 18,
-    borderRadius: radius.card,
-    borderWidth: 1.5,
-    borderColor: colors.amber,
-    backgroundColor: "rgba(255,215,64,0.06)",
-  },
-  priceBtn: {
-    marginTop: 16,
-    paddingVertical: 14,
-    borderRadius: radius.button,
-    backgroundColor: colors.amber,
-    alignItems: "center",
-    shadowColor: colors.amber,
-    shadowOpacity: 0.5,
-    shadowRadius: 16,
+    borderWidth: 1, borderColor: colors.border,
+    borderRadius: 10, padding: 14, marginBottom: 8,
   },
   aboutRow: {
     backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 10,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+    borderWidth: 1, borderColor: colors.border,
+    borderRadius: 10, paddingVertical: 14, paddingHorizontal: 14,
+    flexDirection: "row", justifyContent: "space-between", alignItems: "center",
     marginBottom: 6,
   },
 });

@@ -1,28 +1,47 @@
-# SOUND PRO — PRD
+# SOUND PRO — PRD (v2)
 
-Premium iOS-style audio utility app with 3 tabs (Boost, EQ, Meter) + Settings bottom sheet. Dark "Performance Pro" theme. Single language: English. All controls functional, simulated data (no native audio APIs).
+Premium iOS-style audio utility app — **completely free**, no PRO/paywall. Three tabs (Boost · EQ · Meter), settings sheet, and cinematic onboarding.
 
-## Architecture
-- Expo Router single-screen app (`app/index.tsx`) hosting a custom tab switcher.
-- Tabs in `src/sound-pro/`:
-  - `BoostTab.tsx` — circular gauge, volume/bass sliders, sound profile, 8D audio card with rotating animation, noise cleaning toggle, timer chips, speaker test, hearing-guardian alerts, activate button.
-  - `EqTab.tsx` — audio visualizer (24 bars, 120ms tick), 10 named presets, 10 vertical PanResponder sliders, BASS/MID/TREBLE summary cards, save preset button.
-  - `MeterTab.tsx` — circular gauge (0–120 dB), MIN/AVG/PEAK cards, 40-bar live chart (130ms), 4-card reference grid, mode selector (Standard/Sleep/Evidence), sensitivity & weighting chips, START/STOP + reset, Sleep report, PRO export buttons, persistent 5-item history (AsyncStorage).
-  - `SettingsSheet.tsx` — slide-up modal with calibration, display toggles, noise alert + threshold slider, premium promo card, about list.
-- `CircularGauge.tsx` — SVG 270° arc gauge (shared by Boost & Meter).
-- `VerticalSlider.tsx` — PanResponder-based slider (EQ bands).
-- `theme.ts` — design tokens + color/status bucket functions.
+## Phase 1 (current)
 
-## Key Features
-- Dynamic gauge colors per value (green → red).
-- Hearing guardian conditional alerts at 200–350% and 350%+ boost.
-- Simulated dB readings with sensitivity & weighting modifiers; sleep mode lower base values; evidence mode pulsing REC timestamp.
-- 5 most recent recordings persisted via `@/src/utils/storage`.
-- PRO badges on export buttons → alert (no paywall).
-- 8D Audio expandable card with rotating dashed circles + orbit dot animation.
+### New since v1
+- **Cinematic onboarding** — 3 swipeable pages with bespoke SVG art per slide (radiating arcs / EQ bars / sweeping gauge). Last page asks for mic permission (UI-only in Phase 1 — wired to real expo-audio in Phase 2). Persisted via `soundpro.onboarded.v1`.
+- **No paywall** — Premium section removed from settings; replaced with "100% FREE" badge + manifesto card. Export buttons replaced with single "Share Latest Summary" (uses Share API).
+- **Live spectrum analyzer** (24-band) under the dB gauge, smoothed gaussian profile around a drifting dominant band.
+- **Dominant frequency reading** (Hz / kHz) under the gauge while measuring.
+- **Smooth gauge animation** — `CircularGauge` self-interpolates with eased cubic over 350 ms.
+- **EQ custom presets** — save with a name (text input modal), persisted in `soundpro.eq.custom.v1`, shown as ⭐ amber chips, long-press to delete.
+- **History modal** — tap a row to open a bottom sheet with sparkline (SVG area path), stats, and share button; long-press to delete (confirm dialog).
+- **Recordings now persist full session as a downsampled (≤120 pts) readings array** for the detail sparkline.
+- **Haptics everywhere** — selection on chips, heavy on START, success on calibration, warn on destructive actions (`expo-haptics`).
+- **Glass card primitive** (`GlassCard.tsx`) — BlurView on native, backdrop-filter on web. Available for future use.
+- **Tab-specific dual glow** in header — top arc + lower belly glow recolored per tab.
+- **Larger, refined gauge** (200 px) with rounded display number (52 pt, tracking -1.5).
+- **Settings polish** — icons on About rows, descriptive subtitle per toggle.
 
-## No backend
-All state local. Backend remains untouched.
+### Architecture
+- `app/index.tsx` — onboarding gate (storage flag), header, custom tab bar, content scroll, settings modal.
+- `src/sound-pro/`:
+  - `OnboardingScreen.tsx` — 3-page paged ScrollView with cinematic SVG art and dot indicator.
+  - `CircularGauge.tsx` — eased value smoothing, optional `subText` for frequency.
+  - `BoostTab.tsx` · `EqTab.tsx` · `MeterTab.tsx` — feature screens.
+  - `SettingsSheet.tsx` — no premium; just calibration / display / alerts / about.
+  - `HistoryDetailModal.tsx` — detail bottom sheet with SVG sparkline + share.
+  - `GlassCard.tsx` — cross-platform glass primitive.
+  - `VerticalSlider.tsx` — PanResponder slider for EQ.
+  - `theme.ts` — design tokens + color/status bucket fns.
+  - `haptic.ts` — cross-platform haptic wrapper (no-op on web).
 
-## TestIDs
-Comprehensive `testID` on every interactive element (`tab-*`, `boost-*`, `eq-*`, `meter-*`, `settings-*`).
+### Storage keys
+- `soundpro.onboarded.v1` — `"1"` once onboarding completes.
+- `soundpro.history.v2` — last 10 recordings (id, date, time, avg/peak/min, duration, mode, readings[]).
+- `soundpro.eq.custom.v1` — last 10 custom EQ presets `{name, bands[]}`.
+
+### Mocked / deferred to Phase 2
+- Microphone is **simulated** (Phase 1 explicit choice). `start()` generates dB samples every 130 ms; sensitivity & weighting modify amplitude.
+- "Enable Microphone" button on onboarding is UI-only.
+- Calibration is a 3-second fake.
+- Apple Health, real mic, LEQ/TWA, reference calibration, noise/tinnitus generators are Phase 2.
+
+### No backend
+All state local. FastAPI server remains untouched.

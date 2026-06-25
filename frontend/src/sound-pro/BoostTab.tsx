@@ -12,6 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 
 import CircularGauge from "./CircularGauge";
 import { colors, radius, boostColor, boostStatus } from "./theme";
+import * as H from "./haptic";
 
 const LABEL: any = { color: colors.textSecondary, fontSize: 10, fontWeight: "700", letterSpacing: 1.5 };
 
@@ -21,7 +22,7 @@ type SpinSpeed = "slow" | "medium" | "fast";
 type Timer = "off" | "30" | "60" | "90";
 
 export default function BoostTab() {
-  const [active, setActive] = useState(false);
+  const [activeBoost, setActiveBoost] = useState(false);
   const [volume, setVolume] = useState(150);
   const [bass, setBass] = useState(40);
   const [profile, setProfile] = useState<Profile>("music");
@@ -31,16 +32,14 @@ export default function BoostTab() {
   const [timer, setTimer] = useState<Timer>("off");
   const [speaker, setSpeaker] = useState<Speaker>(null);
 
-  const gColor = boostColor(volume, active);
-  const status = boostStatus(volume, active);
+  // Gauge value reflects boost only when active.
+  const gaugeVal = activeBoost ? volume : 0;
+  const gColor = boostColor(volume, activeBoost);
+  const status = boostStatus(volume, activeBoost);
 
-  // 8D rotation animation
   const spin = useRef(new Animated.Value(0)).current;
   useEffect(() => {
-    if (!eightD) {
-      spin.stopAnimation();
-      return;
-    }
+    if (!eightD) { spin.stopAnimation(); return; }
     spin.setValue(0);
     const dur = eightDSpeed === "slow" ? 8000 : eightDSpeed === "fast" ? 1500 : 3500;
     const loop = Animated.loop(
@@ -50,7 +49,6 @@ export default function BoostTab() {
     return () => loop.stop();
   }, [eightD, eightDSpeed, spin]);
 
-  // Speaker pulse
   const pulse = useRef(new Animated.Value(0.6)).current;
   useEffect(() => {
     if (!speaker) return;
@@ -70,20 +68,18 @@ export default function BoostTab() {
 
   return (
     <View style={{ paddingHorizontal: 16, paddingBottom: 32 }} testID="boost-tab">
-      {/* Gauge */}
-      <View style={{ alignItems: "center", marginTop: 8, marginBottom: 16 }}>
+      <View style={{ alignItems: "center", marginTop: 4, marginBottom: 14 }}>
         <CircularGauge
-          value={volume}
+          value={gaugeVal}
           max={500}
           color={gColor}
-          centerNumber={active ? `${volume}` : "0"}
           unit="%"
           status={status.text}
           statusColor={status.color}
         />
       </View>
 
-      {/* Volume Boost Slider */}
+      {/* Volume */}
       <View style={styles.card}>
         <View style={styles.rowBetween}>
           <Text style={LABEL}>VOLUME BOOST</Text>
@@ -91,18 +87,17 @@ export default function BoostTab() {
         </View>
         <Slider
           testID="boost-volume-slider"
-          minimumValue={0}
-          maximumValue={500}
-          step={1}
+          minimumValue={0} maximumValue={500} step={1}
           value={volume}
-          onValueChange={setVolume}
+          onValueChange={(v) => setVolume(v)}
+          onSlidingComplete={() => H.tap()}
           minimumTrackTintColor={gColor}
           maximumTrackTintColor="rgba(255,255,255,0.08)"
           thumbTintColor="#FFFFFF"
         />
       </View>
 
-      {/* Bass Boost */}
+      {/* Bass */}
       <View style={styles.card}>
         <View style={styles.rowBetween}>
           <Text style={LABEL}>BASS BOOST</Text>
@@ -110,43 +105,29 @@ export default function BoostTab() {
         </View>
         <Slider
           testID="boost-bass-slider"
-          minimumValue={0}
-          maximumValue={100}
-          step={1}
+          minimumValue={0} maximumValue={100} step={1}
           value={bass}
-          onValueChange={setBass}
+          onValueChange={(v) => setBass(v)}
+          onSlidingComplete={() => H.tap()}
           minimumTrackTintColor={colors.purple}
           maximumTrackTintColor="rgba(255,255,255,0.08)"
           thumbTintColor="#FFFFFF"
         />
       </View>
 
-      {/* Sound Profile */}
+      {/* Profile */}
       <Text style={[LABEL, { marginTop: 12, marginBottom: 8, marginLeft: 4 }]}>SOUND PROFILE</Text>
       <View style={styles.row}>
         {(["music", "movie", "podcast", "night"] as const).map((p) => {
-          const labels: Record<string, string> = {
-            music: "Music",
-            movie: "Movie",
-            podcast: "Podcast",
-            night: "Night",
-          };
-          const icons: Record<string, any> = {
-            music: "musical-notes",
-            movie: "film",
-            podcast: "mic",
-            night: "moon",
-          };
+          const labels: Record<string, string> = { music: "Music", movie: "Movie", podcast: "Podcast", night: "Night" };
+          const icons: Record<string, any> = { music: "musical-notes", movie: "film", podcast: "mic", night: "moon" };
           const on = profile === p;
           return (
             <TouchableOpacity
               key={p}
               testID={`boost-profile-${p}`}
-              onPress={() => setProfile(on ? null : p)}
-              style={[
-                styles.profileBtn,
-                on && { backgroundColor: "rgba(68,138,255,0.14)", borderColor: colors.blue },
-              ]}
+              onPress={() => { H.select(); setProfile(on ? null : p); }}
+              style={[styles.profileBtn, on && { backgroundColor: "rgba(68,138,255,0.14)", borderColor: colors.blue }]}
             >
               <Ionicons name={icons[p]} size={16} color={on ? colors.blue : colors.textSecondary} />
               <Text style={[styles.profileLabel, on && { color: colors.blue }]}>{labels[p]}</Text>
@@ -155,7 +136,7 @@ export default function BoostTab() {
         })}
       </View>
 
-      {/* 8D Audio */}
+      {/* 8D */}
       <View style={[styles.card, { marginTop: 16 }]}>
         <View style={styles.rowBetween}>
           <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
@@ -167,39 +148,21 @@ export default function BoostTab() {
               <Text style={styles.cardSub}>Surround sound experience</Text>
             </View>
           </View>
-          <Switch on={eightD} onToggle={() => setEightD((v) => !v)} color={colors.blue} testID="boost-8d-toggle" />
+          <Switch on={eightD} onToggle={() => { H.select(); setEightD((v) => !v); }} color={colors.blue} testID="boost-8d-toggle" />
         </View>
 
         {eightD && (
           <View style={{ marginTop: 16, alignItems: "center" }}>
             <View style={{ width: 80, height: 80, alignItems: "center", justifyContent: "center" }}>
-              <Animated.View
-                style={[styles.dashed, { width: 80, height: 80, transform: [{ rotate: spinDeg }] }]}
-              />
+              <Animated.View style={[styles.dashed, { width: 80, height: 80, transform: [{ rotate: spinDeg }] }]} />
               <Animated.View
                 style={[
                   styles.dashed,
-                  {
-                    position: "absolute",
-                    width: 50,
-                    height: 50,
-                    borderColor: "rgba(68,138,255,0.6)",
-                    transform: [{ rotate: spinDegRev }],
-                  },
+                  { position: "absolute", width: 50, height: 50, borderColor: "rgba(68,138,255,0.6)", transform: [{ rotate: spinDegRev }] },
                 ]}
               />
               <View style={styles.eightDDot} />
-              <Animated.View
-                style={[
-                  styles.eightDOrbit,
-                  {
-                    transform: [
-                      { rotate: orbitDeg },
-                      { translateX: 32 },
-                    ],
-                  },
-                ]}
-              />
+              <Animated.View style={[styles.eightDOrbit, { transform: [{ rotate: orbitDeg }, { translateX: 32 }] }]} />
             </View>
             <View style={[styles.row, { marginTop: 12 }]}>
               {(["slow", "medium", "fast"] as const).map((s) => {
@@ -208,7 +171,7 @@ export default function BoostTab() {
                   <TouchableOpacity
                     key={s}
                     testID={`boost-8d-${s}`}
-                    onPress={() => setEightDSpeed(s)}
+                    onPress={() => { H.select(); setEightDSpeed(s); }}
                     style={[styles.chip, on && { backgroundColor: colors.blue, borderColor: colors.blue }]}
                   >
                     <Text style={[styles.chipText, on && { color: "#FFF" }]}>
@@ -228,7 +191,7 @@ export default function BoostTab() {
           <Ionicons name="sparkles" size={18} color={noiseClean ? colors.cyan : colors.textSecondary} />
           <Text style={[styles.cardTitle, { marginLeft: 10 }]}>Noise Cleaning</Text>
         </View>
-        <Switch on={noiseClean} onToggle={() => setNoiseClean((v) => !v)} color={colors.cyan} testID="boost-noise-toggle" />
+        <Switch on={noiseClean} onToggle={() => { H.select(); setNoiseClean((v) => !v); }} color={colors.cyan} testID="boost-noise-toggle" />
       </View>
 
       {/* Timer */}
@@ -241,21 +204,16 @@ export default function BoostTab() {
             <TouchableOpacity
               key={t}
               testID={`boost-timer-${t}`}
-              onPress={() => setTimer(t)}
-              style={[
-                styles.chipFlex,
-                on && { backgroundColor: colors.amber, borderColor: colors.amber },
-              ]}
+              onPress={() => { H.select(); setTimer(t); }}
+              style={[styles.chipFlex, on && { backgroundColor: colors.amber, borderColor: colors.amber }]}
             >
-              <Text style={[styles.chipText, on && { color: "#1A1A24", fontWeight: "800" }]}>
-                {label}
-              </Text>
+              <Text style={[styles.chipText, on && { color: "#1A1A24", fontWeight: "800" }]}>{label}</Text>
             </TouchableOpacity>
           );
         })}
       </View>
 
-      {/* Speaker Test */}
+      {/* Speaker */}
       <Text style={[LABEL, { marginTop: 16, marginBottom: 8, marginLeft: 4 }]}>SPEAKER TEST</Text>
       <View style={styles.row}>
         {(["left", "both", "right"] as const).map((s) => {
@@ -265,15 +223,10 @@ export default function BoostTab() {
             <TouchableOpacity
               key={s}
               testID={`boost-speaker-${s}`}
-              onPress={() => setSpeaker(on ? null : s)}
-              style={[
-                styles.chipFlex,
-                on && { backgroundColor: "rgba(0,230,118,0.14)", borderColor: colors.green },
-              ]}
+              onPress={() => { H.select(); setSpeaker(on ? null : s); }}
+              style={[styles.chipFlex, on && { backgroundColor: "rgba(0,230,118,0.14)", borderColor: colors.green }]}
             >
-              <Text style={[styles.chipText, on && { color: colors.green, fontWeight: "700" }]}>
-                {labels[s]}
-              </Text>
+              <Text style={[styles.chipText, on && { color: colors.green, fontWeight: "700" }]}>{labels[s]}</Text>
             </TouchableOpacity>
           );
         })}
@@ -285,14 +238,14 @@ export default function BoostTab() {
       )}
 
       {/* Hearing alert */}
-      {active && volume > 200 && volume <= 350 && (
+      {activeBoost && volume > 200 && volume <= 350 && (
         <View style={[styles.alert, { backgroundColor: "rgba(255,215,64,0.10)", borderColor: colors.amber }]}>
           <Text style={[styles.alertText, { color: colors.amber }]}>
             ⚠️  Prolonged listening may damage your hearing.
           </Text>
         </View>
       )}
-      {active && volume > 350 && (
+      {activeBoost && volume > 350 && (
         <View style={[styles.alert, { backgroundColor: "rgba(255,23,68,0.12)", borderColor: colors.red }]}>
           <Text style={[styles.alertText, { color: colors.red }]}>
             🛑  Hearing damage risk! Lower the level immediately.
@@ -303,55 +256,39 @@ export default function BoostTab() {
       {/* Activate */}
       <TouchableOpacity
         testID="boost-activate"
-        onPress={() => setActive((v) => !v)}
+        onPress={() => {
+          if (!activeBoost) H.heavy(); else H.tap();
+          setActiveBoost((v) => !v);
+        }}
         style={[
           styles.activate,
-          active
+          activeBoost
             ? { backgroundColor: gColor, borderColor: gColor, shadowColor: gColor, shadowOpacity: 0.5, shadowRadius: 24 }
             : { backgroundColor: "transparent", borderColor: "rgba(255,255,255,0.15)" },
         ]}
       >
-        <Text style={[styles.activateText, { color: active ? "#0B0B12" : colors.textSecondary }]}>
-          {active ? "⚡ BOOSTING" : "ACTIVATE BOOST"}
+        <Text style={[styles.activateText, { color: activeBoost ? "#0B0B12" : colors.textSecondary }]}>
+          {activeBoost ? "⚡ BOOSTING" : "ACTIVATE BOOST"}
         </Text>
       </TouchableOpacity>
     </View>
   );
 }
 
-// Tiny switch component (no extra deps)
-function Switch({
-  on,
-  onToggle,
-  color,
-  testID,
-}: {
-  on: boolean;
-  onToggle: () => void;
-  color: string;
-  testID?: string;
-}) {
+function Switch({ on, onToggle, color, testID }: { on: boolean; onToggle: () => void; color: string; testID?: string }) {
   return (
     <TouchableOpacity
-      onPress={onToggle}
-      testID={testID}
-      activeOpacity={0.8}
+      onPress={onToggle} testID={testID} activeOpacity={0.8}
       style={{
-        width: 46,
-        height: 26,
-        borderRadius: 13,
+        width: 46, height: 26, borderRadius: 13,
         backgroundColor: on ? color : "rgba(255,255,255,0.08)",
-        padding: 3,
-        justifyContent: "center",
+        padding: 3, justifyContent: "center",
       }}
     >
       <View
         style={{
-          width: 20,
-          height: 20,
-          borderRadius: 10,
-          backgroundColor: "#FFF",
-          alignSelf: on ? "flex-end" : "flex-start",
+          width: 20, height: 20, borderRadius: 10,
+          backgroundColor: "#FFF", alignSelf: on ? "flex-end" : "flex-start",
         }}
       />
     </TouchableOpacity>
@@ -360,12 +297,8 @@ function Switch({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.card,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 14,
-    marginTop: 10,
+    backgroundColor: colors.surface, borderRadius: radius.card,
+    borderWidth: 1, borderColor: colors.border, padding: 14, marginTop: 10,
   },
   rowBetween: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   row: { flexDirection: "row", gap: 8 },
@@ -373,72 +306,35 @@ const styles = StyleSheet.create({
   cardTitle: { color: colors.textPrimary, fontSize: 14, fontWeight: "700" },
   cardSub: { color: colors.textSecondary, fontSize: 11, marginTop: 2 },
   profileBtn: {
-    flex: 1,
-    backgroundColor: colors.surface,
-    borderRadius: radius.button,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingVertical: 12,
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: 6,
+    flex: 1, backgroundColor: colors.surface, borderRadius: radius.button,
+    borderWidth: 1, borderColor: colors.border, paddingVertical: 12,
+    alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 6,
   },
   profileLabel: { color: colors.textSecondary, fontSize: 12, fontWeight: "600" },
   chip: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.chip,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border,
+    borderRadius: radius.chip, paddingHorizontal: 14, paddingVertical: 8,
   },
   chipFlex: {
-    flex: 1,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.chip,
-    paddingVertical: 10,
-    alignItems: "center",
+    flex: 1, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border,
+    borderRadius: radius.chip, paddingVertical: 10, alignItems: "center",
   },
   chipText: { color: colors.textSecondary, fontSize: 12, fontWeight: "600" },
   dashed: {
-    borderRadius: 1000,
-    borderWidth: 1.5,
-    borderColor: "rgba(68,138,255,0.45)",
-    borderStyle: "dashed",
+    borderRadius: 1000, borderWidth: 1.5,
+    borderColor: "rgba(68,138,255,0.45)", borderStyle: "dashed",
   },
   eightDDot: {
-    position: "absolute",
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: colors.blue,
-    shadowColor: colors.blue,
-    shadowOpacity: 0.8,
-    shadowRadius: 8,
+    position: "absolute", width: 10, height: 10, borderRadius: 5,
+    backgroundColor: colors.blue, shadowColor: colors.blue,
+    shadowOpacity: 0.8, shadowRadius: 8,
   },
-  eightDOrbit: {
-    position: "absolute",
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: colors.cyan,
-  },
-  alert: {
-    marginTop: 14,
-    padding: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-  },
+  eightDOrbit: { position: "absolute", width: 6, height: 6, borderRadius: 3, backgroundColor: colors.cyan },
+  alert: { marginTop: 14, padding: 12, borderRadius: 10, borderWidth: 1 },
   alertText: { fontSize: 12, fontWeight: "600" },
   activate: {
-    marginTop: 18,
-    paddingVertical: 16,
-    borderRadius: radius.button,
-    alignItems: "center",
-    borderWidth: 1,
+    marginTop: 18, paddingVertical: 16, borderRadius: radius.button,
+    alignItems: "center", borderWidth: 1,
   },
   activateText: { fontSize: 14, fontWeight: "800", letterSpacing: 1.5 },
 });
