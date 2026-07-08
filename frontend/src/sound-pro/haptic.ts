@@ -1,9 +1,12 @@
-// Tiny haptics wrapper that no-ops on web/unsupported platforms.
+// Tiny haptics wrapper that no-ops on web/unsupported platforms and respects
+// the user's "Haptic Feedback" setting.
 import * as Haptics from "expo-haptics";
 import { Platform } from "react-native";
+import { getSettings } from "./settings-store";
 
 const safe = (fn: () => Promise<unknown> | unknown) => {
   if (Platform.OS === "web") return;
+  if (!getSettings().haptic) return;
   try { void fn(); } catch { /* swallow */ }
 };
 

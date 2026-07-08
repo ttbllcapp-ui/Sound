@@ -10,7 +10,10 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.emergent.dbmetertool.mp46q4"
+      "bundleIdentifier": "com.emergent.dbmetertool.mp46q4",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "Sound Pro uses the microphone to measure ambient noise levels in decibels while you're actively measuring."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -18,7 +21,8 @@
         "backgroundColor": "#000"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.emergent.dbmetertool.mp46q4"
+      "package": "com.emergent.dbmetertool.mp46q4",
+      "permissions": ["RECORD_AUDIO"]
     },
     "web": {
       "bundler": "metro",
@@ -34,6 +38,13 @@
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#000"
+        }
+      ],
+      "expo-mail-composer",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Sound Pro uses the microphone to measure ambient noise levels in decibels while you're actively measuring."
         }
       ]
     ],

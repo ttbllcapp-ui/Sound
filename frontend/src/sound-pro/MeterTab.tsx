@@ -10,12 +10,17 @@ import {
   Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { activateKeepAwakeAsync, deactivateKeepAwake } from "expo-keep-awake";
 
 import CircularGauge from "./CircularGauge";
 import HistoryDetailModal, { Recording } from "./HistoryDetailModal";
 import { colors, radius, dbColor, dbStatus } from "./theme";
 import { storage } from "@/src/utils/storage";
+import { startMetering, stopMetering, getMicOffset, dbfsToSpl } from "./mic";
+import { useSettings } from "./settings-store";
 import * as H from "./haptic";
+
+const KEEP_AWAKE_TAG = "sound-pro-meter";
 
 const LABEL: any = { color: colors.textSecondary, fontSize: 10, fontWeight: "700", letterSpacing: 1.5 };
 
@@ -58,11 +63,14 @@ export default function MeterTab() {
   const [sleepReport, setSleepReport] = useState<{ avg: number; peak: number; events: number } | null>(null);
   const [history, setHistory] = useState<Recording[]>([]);
   const [detail, setDetail] = useState<Recording | null>(null);
+  const [micDenied, setMicDenied] = useState(false);
+  const settings = useSettings();
 
-  const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const secRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const sumRef = useRef(0);
   const countRef = useRef(0);
+  const offsetRef = useRef(94);
+  const alertedRef = useRef(false);
   // Persistent spectrum smoothing
   const spectrumRef = useRef<number[]>(Array(SPECTRUM_BANDS).fill(0.05));
 
@@ -75,6 +83,7 @@ export default function MeterTab() {
           if (Array.isArray(parsed)) setHistory(parsed);
         } catch { /* ignore */ }
       }
+      offsetRef.current = await getMicOffset();
     })();
   }, []);
 
@@ -83,18 +92,8 @@ export default function MeterTab() {
     storage.setItem(HISTORY_KEY, JSON.stringify(next));
   };
 
-  // Generate a single dB sample (sensitivity / weighting / mode applied)
-  const generateReading = () => {
-    let v: number;
-    if (mode === "sleep") {
-      const base = 20 + Math.random() * 35;
-      const event = Math.random() > 0.92 ? Math.random() * 30 : 0;
-      v = Math.min(120, base + event);
-    } else {
-      const base = 28 + Math.random() * 52;
-      const spike = Math.random() > 0.91 ? Math.random() * 28 : 0;
-      v = Math.min(120, base + spike);
-    }
+  // Apply sensitivity / weighting adjustments to a real SPL reading from the mic.
+  const applyAdjustments = (v: number) => {
     if (sensitivity === "low") v *= 0.85;
     if (sensitivity === "high") v *= 1.12;
     if (weight === "dBC") v *= 1.04;
@@ -121,9 +120,8 @@ export default function MeterTab() {
     setSpectrum([...next]);
   };
 
-  const start = () => {
-    H.heavy();
-    setMeasuring(true);
+  const start = async () => {
+    setMicDenied(false);
     setCurrent(0);
     setReadings([]);
     setAllReadings([]);
@@ -131,9 +129,10 @@ export default function MeterTab() {
     setSleepReport(null);
     sumRef.current = 0;
     countRef.current = 0;
+    alertedRef.current = false;
 
-    tickRef.current = setInterval(() => {
-      const v = generateReading();
+    const ok = await startMetering((dbfs) => {
+      const v = applyAdjustments(dbfsToSpl(dbfs, offsetRef.current));
       setCurrent(v);
       sumRef.current += v;
       countRef.current += 1;
@@ -146,7 +145,24 @@ export default function MeterTab() {
       });
       setAllReadings((prev) => [...prev, v]);
       generateSpectrum(v);
-    }, 130);
+      if (settings.noiseAlert && v >= settings.threshold && !alertedRef.current) {
+        alertedRef.current = true;
+        H.warn();
+      }
+    });
+
+    if (!ok) {
+      setMicDenied(true);
+      Alert.alert(
+        "Microphone access needed",
+        "Sound Pro needs microphone access to measure noise levels. Enable it in Settings > Privacy > Microphone.",
+      );
+      return;
+    }
+
+    if (settings.keepScreenOn) activateKeepAwakeAsync(KEEP_AWAKE_TAG);
+    H.heavy();
+    setMeasuring(true);
     secRef.current = setInterval(() => {
       setDuration((d) => d + 1);
     }, 1000);
@@ -155,9 +171,9 @@ export default function MeterTab() {
   const stop = () => {
     H.tap();
     setMeasuring(false);
-    if (tickRef.current) clearInterval(tickRef.current);
+    stopMetering();
+    deactivateKeepAwake(KEEP_AWAKE_TAG);
     if (secRef.current) clearInterval(secRef.current);
-    tickRef.current = null;
     secRef.current = null;
     spectrumRef.current = Array(SPECTRUM_BANDS).fill(0.05);
     setSpectrum(Array(SPECTRUM_BANDS).fill(0.05));
@@ -203,14 +219,15 @@ export default function MeterTab() {
 
   useEffect(() => {
     return () => {
-      if (tickRef.current) clearInterval(tickRef.current);
       if (secRef.current) clearInterval(secRef.current);
+      stopMetering();
+      deactivateKeepAwake(KEEP_AWAKE_TAG);
     };
   }, []);
 
   const gColor = dbColor(current);
   const status = current === 0 && !measuring ? "Ready" : dbStatus(current);
-  const subText = measuring ? `${fmtHz(BAND_FREQS[dominantBand])} dominant` : undefined;
+  const subText = measuring && settings.showFreq ? `${fmtHz(BAND_FREQS[dominantBand])} dominant` : undefined;
 
   const recPulse = useRef(new Animated.Value(0.6)).current;
   useEffect(() => {
@@ -423,6 +440,11 @@ export default function MeterTab() {
           <Ionicons name="refresh" size={20} color={colors.textPrimary} />
         </TouchableOpacity>
       </View>
+      {micDenied && (
+        <Text style={{ color: colors.red, fontSize: 11, textAlign: "center", marginTop: 8 }}>
+          Microphone access denied. Enable it in iOS Settings to measure noise levels.
+        </Text>
+      )}
 
       {/* Sleep report */}
       {sleepReport && (

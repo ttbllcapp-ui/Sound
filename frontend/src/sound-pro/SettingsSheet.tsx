@@ -7,33 +7,90 @@ import {
   Modal,
   ScrollView,
   Pressable,
+  Share,
+  Linking,
+  Alert,
 } from "react-native";
 import Slider from "@react-native-community/slider";
 import { Ionicons } from "@expo/vector-icons";
+import * as StoreReview from "expo-store-review";
+import * as MailComposer from "expo-mail-composer";
 
 import { colors, radius } from "./theme";
 import * as H from "./haptic";
+import PolicyModal from "./PolicyModal";
+import { PRIVACY_POLICY_TITLE, PRIVACY_POLICY_BODY, TERMS_OF_USE_TITLE, TERMS_OF_USE_BODY } from "./policies";
+import { startMetering, stopMetering, setMicOffset } from "./mic";
+import { useSettings, updateSettings } from "./settings-store";
+
+const SUPPORT_EMAIL = "info@ttbinternationalllc.com";
 
 const LABEL: any = { color: colors.textSecondary, fontSize: 10, fontWeight: "700", letterSpacing: 1.5 };
 
 type Props = { visible: boolean; onClose: () => void };
 
 export default function SettingsSheet({ visible, onClose }: Props) {
-  const [calibrating, setCalibrating] = useState<"idle" | "going" | "done">("idle");
-  const [showFreq, setShowFreq] = useState(false);
-  const [haptic, setHaptic] = useState(true);
-  const [keepScreenOn, setKeepScreenOn] = useState(false);
-  const [noiseAlert, setNoiseAlert] = useState(false);
-  const [threshold, setThreshold] = useState(85);
+  const [calibrating, setCalibrating] = useState<"idle" | "going" | "done" | "failed">("idle");
+  const [privacyOpen, setPrivacyOpen] = useState(false);
+  const [termsOpen, setTermsOpen] = useState(false);
+  const settings = useSettings();
 
-  const calibrate = () => {
+  // Records ~3s of ambient audio and derives a calibration offset assuming a
+  // quiet room (~35 dB SPL) — the best we can do without a reference meter.
+  const calibrate = async () => {
     H.tap();
     setCalibrating("going");
-    setTimeout(() => {
+    const samples: number[] = [];
+    const ok = await startMetering((dbfs) => samples.push(dbfs));
+    if (!ok) {
+      setCalibrating("failed");
+      Alert.alert("Microphone access needed", "Enable microphone access in Settings to calibrate.");
+      setTimeout(() => setCalibrating("idle"), 2000);
+      return;
+    }
+    setTimeout(async () => {
+      await stopMetering();
+      if (samples.length > 0) {
+        const avgDbfs = samples.reduce((a, b) => a + b, 0) / samples.length;
+        await setMicOffset(35 - avgDbfs);
+      }
       H.success();
       setCalibrating("done");
       setTimeout(() => setCalibrating("idle"), 2500);
     }, 3000);
+  };
+
+  const rateApp = async () => {
+    H.tap();
+    if (await StoreReview.isAvailableAsync()) {
+      StoreReview.requestReview();
+    }
+  };
+
+  const shareApp = async () => {
+    H.tap();
+    try {
+      await Share.share({ message: "Check out Sound Pro — a sound meter, equalizer & volume booster app." });
+    } catch { /* user cancelled */ }
+  };
+
+  const contactUs = async () => {
+    H.tap();
+    if (await MailComposer.isAvailableAsync()) {
+      await MailComposer.composeAsync({ recipients: [SUPPORT_EMAIL], subject: "Sound Pro Support" });
+    } else {
+      Linking.openURL(`mailto:${SUPPORT_EMAIL}`).catch(() => {
+        Alert.alert("Contact Us", SUPPORT_EMAIL);
+      });
+    }
+  };
+
+  const openAbout = (id: string) => {
+    if (id === "rate") return rateApp();
+    if (id === "share") return shareApp();
+    if (id === "privacy") { H.tap(); setPrivacyOpen(true); return; }
+    if (id === "terms") { H.tap(); setTermsOpen(true); return; }
+    if (id === "contact") return contactUs();
   };
 
   return (
@@ -48,22 +105,6 @@ export default function SettingsSheet({ visible, onClose }: Props) {
               <Text style={styles.h1}>SOUND PRO</Text>
               <Text style={styles.muted}>Version 1.0.0</Text>
             </View>
-            <View style={styles.freeBadge}>
-              <Ionicons name="heart" size={11} color={colors.green} />
-              <Text style={{ color: colors.green, fontSize: 10, fontWeight: "800", letterSpacing: 1, marginLeft: 5 }}>
-                100% FREE
-              </Text>
-            </View>
-          </View>
-
-          {/* Free pitch */}
-          <View style={styles.freeCard}>
-            <Text style={{ color: colors.textPrimary, fontSize: 13, fontWeight: "700" }}>
-              Every feature is free. Forever.
-            </Text>
-            <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 6, lineHeight: 18 }}>
-              No subscriptions, no paywalls, no locked tools. Sound Pro is built by audio enthusiasts who believe great tools should be accessible to everyone.
-            </Text>
           </View>
 
           {/* Calibration */}
@@ -71,6 +112,7 @@ export default function SettingsSheet({ visible, onClose }: Props) {
           <TouchableOpacity
             testID="settings-calibrate"
             onPress={calibrate}
+            disabled={calibrating === "going"}
             style={[styles.calBtn, calibrating !== "idle" && { borderColor: colors.green }]}
           >
             <Ionicons
@@ -83,6 +125,8 @@ export default function SettingsSheet({ visible, onClose }: Props) {
                 ? "Calibrating… stay quiet"
                 : calibrating === "done"
                 ? "Calibrated"
+                : calibrating === "failed"
+                ? "Calibration failed"
                 : "Calibrate Microphone"}
             </Text>
           </TouchableOpacity>
@@ -92,23 +136,23 @@ export default function SettingsSheet({ visible, onClose }: Props) {
 
           {/* Display */}
           <Text style={[LABEL, styles.section]}>DISPLAY</Text>
-          <ToggleRow label="Show Frequency" desc="Display dominant Hz on meter" on={showFreq} onToggle={() => { H.select(); setShowFreq((v) => !v); }} testID="settings-show-freq" />
-          <ToggleRow label="Haptic Feedback" desc="Subtle taps on interactions" on={haptic} onToggle={() => { H.select(); setHaptic((v) => !v); }} testID="settings-haptic" />
-          <ToggleRow label="Keep Screen On" desc="Prevent sleep while measuring" on={keepScreenOn} onToggle={() => { H.select(); setKeepScreenOn((v) => !v); }} testID="settings-keep-on" />
+          <ToggleRow label="Show Frequency" desc="Display dominant Hz on meter" on={settings.showFreq} onToggle={() => { H.select(); updateSettings({ showFreq: !settings.showFreq }); }} testID="settings-show-freq" />
+          <ToggleRow label="Haptic Feedback" desc="Subtle taps on interactions" on={settings.haptic} onToggle={() => updateSettings({ haptic: !settings.haptic })} testID="settings-haptic" />
+          <ToggleRow label="Keep Screen On" desc="Prevent sleep while measuring" on={settings.keepScreenOn} onToggle={() => { H.select(); updateSettings({ keepScreenOn: !settings.keepScreenOn }); }} testID="settings-keep-on" />
 
           {/* Alerts */}
           <Text style={[LABEL, styles.section]}>ALERTS</Text>
-          <ToggleRow label="Noise Alert" desc="Notify above threshold" on={noiseAlert} onToggle={() => { H.select(); setNoiseAlert((v) => !v); }} testID="settings-noise-alert" />
+          <ToggleRow label="Noise Alert" desc="Notify above threshold" on={settings.noiseAlert} onToggle={() => { H.select(); updateSettings({ noiseAlert: !settings.noiseAlert }); }} testID="settings-noise-alert" />
           <View style={styles.row2}>
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
               <Text style={{ color: colors.textPrimary, fontSize: 13, fontWeight: "600" }}>Alert Threshold</Text>
-              <Text style={{ color: colors.red, fontWeight: "800", fontSize: 13, fontVariant: ["tabular-nums"] }}>{threshold} dB</Text>
+              <Text style={{ color: colors.red, fontWeight: "800", fontSize: 13, fontVariant: ["tabular-nums"] }}>{settings.threshold} dB</Text>
             </View>
             <Slider
               testID="settings-threshold-slider"
               minimumValue={70} maximumValue={100} step={1}
-              value={threshold}
-              onValueChange={setThreshold}
+              value={settings.threshold}
+              onValueChange={(v) => updateSettings({ threshold: v })}
               minimumTrackTintColor={colors.red}
               maximumTrackTintColor="rgba(255,255,255,0.08)"
               thumbTintColor="#FFFFFF"
@@ -125,7 +169,7 @@ export default function SettingsSheet({ visible, onClose }: Props) {
             { label: "Terms of Use", id: "terms", icon: "document-text-outline" },
             { label: "Contact Us", id: "contact", icon: "mail-outline" },
           ].map((item) => (
-            <TouchableOpacity key={item.id} testID={`settings-${item.id}`} onPress={() => H.tap()} style={styles.aboutRow}>
+            <TouchableOpacity key={item.id} testID={`settings-${item.id}`} onPress={() => openAbout(item.id)} style={styles.aboutRow}>
               <View style={{ flexDirection: "row", alignItems: "center" }}>
                 <Ionicons name={item.icon as any} size={16} color={colors.textSecondary} />
                 <Text style={{ color: colors.textPrimary, fontSize: 13, marginLeft: 10 }}>{item.label}</Text>
@@ -139,6 +183,9 @@ export default function SettingsSheet({ visible, onClose }: Props) {
           </Text>
         </ScrollView>
       </View>
+
+      <PolicyModal visible={privacyOpen} onClose={() => setPrivacyOpen(false)} title={PRIVACY_POLICY_TITLE} body={PRIVACY_POLICY_BODY} />
+      <PolicyModal visible={termsOpen} onClose={() => setTermsOpen(false)} title={TERMS_OF_USE_TITLE} body={TERMS_OF_USE_BODY} />
     </Modal>
   );
 }
@@ -193,20 +240,6 @@ const styles = StyleSheet.create({
   h1: { color: colors.textPrimary, fontSize: 18, fontWeight: "900", letterSpacing: 1 },
   muted: { color: colors.textMuted, fontSize: 11 },
   section: { marginTop: 22, marginBottom: 8 },
-  freeBadge: {
-    flexDirection: "row", alignItems: "center",
-    paddingHorizontal: 10, paddingVertical: 5,
-    backgroundColor: "rgba(0,230,118,0.10)",
-    borderRadius: 8,
-    borderWidth: 1, borderColor: "rgba(0,230,118,0.3)",
-  },
-  freeCard: {
-    marginTop: 16,
-    backgroundColor: colors.surface,
-    borderWidth: 1, borderColor: colors.borderStrong,
-    borderRadius: radius.card,
-    padding: 14,
-  },
   calBtn: {
     backgroundColor: colors.surface,
     borderWidth: 1, borderColor: colors.green,

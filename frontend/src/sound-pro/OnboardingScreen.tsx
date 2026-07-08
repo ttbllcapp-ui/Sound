@@ -15,13 +15,14 @@ import Svg, { Circle, Defs, LinearGradient as SvgGradient, Stop } from "react-na
 
 import { colors } from "./theme";
 import * as H from "./haptic";
+import { requestMicPermission } from "./mic";
 
 const { width: W } = Dimensions.get("window");
 
 type Props = { onDone: () => void };
 
-// 3 cinematic onboarding screens. Last screen kicks the (Phase 2) mic permission
-// flow and completes onboarding.
+// 3 cinematic onboarding screens. Last screen requests the mic permission
+// and completes onboarding.
 export default function OnboardingScreen({ onDone }: Props) {
   const [page, setPage] = useState(0);
   const scrollRef = useRef<ScrollView>(null);
@@ -106,7 +107,8 @@ export default function OnboardingScreen({ onDone }: Props) {
           <TouchableOpacity
             testID="onboarding-enable-mic"
             style={[styles.cta, { backgroundColor: colors.amber, shadowColor: colors.amber }]}
-            onPress={() => {
+            onPress={async () => {
+              await requestMicPermission();
               H.success();
               onDone();
             }}
